@@ -5,6 +5,23 @@ import { type NextRequest, NextResponse } from "next/server"
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+function sanitizeAIResponse(text: string): string {
+  let sanitized = text.trim()
+
+  sanitized = sanitized.replace(/^\s*```(?:json)?\s*/i, "") 
+  sanitized = sanitized.replace(/^\s*```\s*/g, "") 
+  sanitized = sanitized.replace(/```\s*$/g, "") 
+  
+  if (
+    sanitized.startsWith("`") &&
+    sanitized.endsWith("`") &&
+    sanitized.length > 2
+  ) {
+    sanitized = sanitized.slice(1, -1)
+  }
+
+  return sanitized.trim()
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,8 +64,11 @@ Only return the JSON, no other text.`,
       system:
         "You are a document analysis expert. Analyze documents to identify fillable fields that users would need to complete. Return only valid JSON.",
     })
-
-    return NextResponse.json({ analysis: text })
+    const sanitized = sanitizeAIResponse(text)
+console.log("AI RAW OUTPUT:", JSON.stringify(text))
+console.log("AI SANITIZED:", JSON.stringify(sanitized))
+return NextResponse.json({ analysis: sanitized })
+    
   } catch (error) {
     console.error("Error analyzing document:", error)
     return NextResponse.json({ error: "Failed to analyze document" }, { status: 500 })
